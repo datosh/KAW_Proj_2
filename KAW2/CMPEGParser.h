@@ -9,6 +9,8 @@ public:
 	~MPEGSlice();
 
 	void printData();
+	std::vector<BYTE> getData() { return m_data; }
+	BOOL isFirstAfterKey() { return m_firstAfterNewKey; }
 
 private:
 	BOOL m_firstAfterNewKey;
@@ -25,7 +27,7 @@ inline MPEGSlice::MPEGSlice(INT pos, INT slice, std::vector<BYTE>::iterator begi
 	m_data = std::vector<BYTE>(begin, end);
 }
 
-MPEGSlice::~MPEGSlice()
+inline MPEGSlice::~MPEGSlice()
 {
 }
 
@@ -35,9 +37,7 @@ enum MPEGType
 	group_of_picture,
 	extention,
 	picture,
-	slice,
 	key_update,
-	unvalid_type,
 };
 
 class MPEGHeader
@@ -46,7 +46,8 @@ public:
 	MPEGHeader(INT pos, MPEGType type, std::vector<BYTE>::iterator begin, std::vector<BYTE>::iterator end);
 	~MPEGHeader();
 
-	void printData(MPEGType type = unvalid_type);
+	void printData();
+	BOOL is(MPEGType type);
 
 private:
 	INT m_position;
@@ -61,7 +62,7 @@ inline MPEGHeader::MPEGHeader(INT pos, MPEGType type, std::vector<BYTE>::iterato
 	m_data = std::vector<BYTE>(begin, end);
 }
 
-MPEGHeader::~MPEGHeader()
+inline MPEGHeader::~MPEGHeader()
 {
 }
 
@@ -71,16 +72,15 @@ public:
 	MPEG(const char * filename);
 	~MPEG();
 
+	std::vector<MPEGHeader> getHeaderByType(MPEGType type);
+	std::vector<MPEGHeader> getHeaders() { return m_header; }
+	std::vector<MPEGSlice> getSlices() { return m_slices; }
+	std::vector<std::vector<BYTE>> getStuffedBytesPerFrame();
+
 private:
+	std::vector<BYTE> m_data;
 	std::vector<MPEGHeader> m_header;
 	std::vector<MPEGSlice> m_slices;
 };
 
-MPEG::MPEG(const char * filename)
-{
-
-}
-
-MPEG::~MPEG()
-{
-}
+std::vector<INT> getHeader(std::vector<BYTE> data);
