@@ -1,5 +1,7 @@
 #include "CMPEGParser.h"
 
+#include <assert.h>
+
 /* 
  * See spec for how these data were extracted: 
  * http://dvd.sourceforge.net/dvdinfo/mpeghdrs.html#seq
@@ -59,48 +61,92 @@ std::vector<MPEGHeader> MPEG::getHeaderByType(MPEGType type)
 }
 
 
-std::vector<std::vector<BYTE>> getChunks(std::vector<std::vector<BYTE>> input)
+std::vector<std::vector<BYTE>> getChunks(std::vector<BYTE> input)
 {
 	std::vector<std::vector<BYTE>> results;
 
-	for (auto i : input)
+	if (input.size() >= 16)
 	{
-		if (i.size() < 16)
+		for (int c = 0; c < (int)(input.size() / 16); ++c)
 		{
-			continue;
-		}
-
-		while (true)
-		{
-			//results.push_back(i.begin(), i.begin() + 16);
+			auto begin = input.begin() + (16 * c);
+			auto end = input.begin() + (16 * (c + 1));
+			results.push_back(std::vector<BYTE>(begin, end));
 		}
 	}
+
+	return results;
 }
 
-std::vector<BYTE> getMatch(std::vector<std::vector<BYTE>> intermediate)
+struct bytes_hash
 {
+	typedef std::vector<BYTE> argument_type;
+	typedef size_t result_type;
 
-	return std::vector<BYTE>();
-}
+	result_type operator() (const argument_type& bytes) const
+	{
+		size_t result = 0;
+		for (byte b : bytes)
+		{
+			result = (result * 31) ^ b;
+		}
+		return result;
+	}
+};
+
+struct bytes_equal
+{
+	typedef std::vector<BYTE> first_argument_type;
+	typedef std::vector<BYTE> second_argument_type;
+	typedef bool result_type;
+
+	result_type operator() (const first_argument_type& x, const second_argument_type& y) const
+	{
+		return std::equal(x.cbegin(), x.cend(), y.cbegin(), y.cend());
+	}
+};
 
 std::vector<std::vector<BYTE>> MPEG::getStuffedBytesPerFrame()
 {
+	const std::vector<BYTE> skip = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+	const bytes_equal comparer;
 
-	std::vector<std::vector<BYTE>> intermediate;
+	std::unordered_set<std::vector<BYTE>, bytes_hash, bytes_equal> intermediate;
+
 	std::vector<std::vector<BYTE>> attackVectors;
 
+	bool found = false;
 	for (auto slice : m_slices)
 	{
 		// Process the intermediate list when a delimited is found
 		if (slice.isFirstAfterKey())
 		{
-			attackVectors.push_back(getMatch(intermediate));
 			intermediate.clear();
+			found = false;
+		}
+		
+		if (found)
+		{
+			continue;
 		}
 
 		// Save the last 16 bytes of data
 		auto data = slice.getData();
-		intermediate.push_back(std::vector<BYTE>(data.begin(), data.end()));
+
+		for (auto chunk : getChunks(data))
+		{
+			if (comparer.operator()(skip, chunk))
+			{
+				continue;
+			}
+
+			if (!intermediate.insert(chunk).second)
+			{
+				attackVectors.push_back(chunk);
+				found = true;
+				break;
+			}
+		}
 	}
 
 	return attackVectors;
@@ -116,7 +162,7 @@ std::vector<INT> getHeader(std::vector<BYTE> data)
 
 	std::vector<INT> headerPos;
 
-	for (auto i = 0; i < data.size() - ignoreLastNBytes; ++i)
+	for (size_t i = 0; i < data.size() - ignoreLastNBytes; ++i)
 	{
 		if (data[i] == 0x00)
 		{
@@ -137,7 +183,7 @@ MPEG::MPEG(const char * filename)
 	// open the file
 	std::ifstream file(filename, std::ios::binary);
 
-	if (!file)
+	if (!file.is_open())
 	{
 		std::cerr << "UNABLE TO OPEN FILE: " << filename << std::endl;
 		exit(-1);

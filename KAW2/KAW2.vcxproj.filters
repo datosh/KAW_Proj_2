@@ -39,4 +39,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="recording_small" />
+  </ItemGroup>
 </Project>

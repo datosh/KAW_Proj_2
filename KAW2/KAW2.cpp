@@ -17,12 +17,12 @@ int _tmain(int argc, _TCHAR* argv[])
 		t.printData();
 	}*/
 
-	for (auto t : mpeg.getSlices())
+	/*for (auto t : mpeg.getSlices())
 	{
 		t.printData();
-	}
+	}*/
 
-	// auto attack_vectors = mpeg.getStuffedBytesPerFrame();
+	auto attack_vectors = mpeg.getStuffedBytesPerFrame();
 
 	getchar();
 
