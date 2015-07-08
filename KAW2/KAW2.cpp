@@ -3,23 +3,13 @@
 
 #include "stdafx.h"
 
-#include <iostream>
-
-enum MPEGType
-{
-	sequence_header,
-	group_of_picture,
-	extention,
-	picture,
-	slice,
-	key_update,
-};
 
 class MPEGDataField
 {
 public:
 	MPEGDataField(INT pos, MPEGType type, std::vector<BYTE>::iterator data_begin, std::vector<BYTE>::iterator data_end);
 	~MPEGDataField();
+	void printData();
 
 public:
 	INT m_position;
@@ -36,6 +26,30 @@ MPEGDataField::MPEGDataField(INT pos, MPEGType type, std::vector<BYTE>::iterator
 
 MPEGDataField::~MPEGDataField()
 {
+}
+
+void MPEGDataField::printData()
+{
+	for (auto b : m_data)
+	{
+		std::cout << std::hex << (int)b << " ";
+	}
+	std::cout << std::endl;
+}
+
+std::vector<MPEGDataField> getVectorByType(std::vector<MPEGDataField> MPEGdata, MPEGType type)
+{
+	std::vector<MPEGDataField> result;
+
+	for (auto data : MPEGdata)
+	{
+		if (data.m_type == type)
+		{
+			result.push_back(data);
+		}
+	}
+
+	return result;
 }
 
 std::vector<BYTE> readFile(const char* filename)
@@ -89,6 +103,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	for (auto pos : headerPos)
 	{
 		auto type = fileData[pos + 3];
+
+		// Save all the header data.
 		switch (type)
 		{
 		case 0xB3:
@@ -111,6 +127,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		default:
 			break;
 		}
+
+
 	}
 
 	std::cout << MPEGdata.size() << std::endl;
@@ -119,12 +137,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		if (data.m_type == sequence_header)
 		{
-			for (auto b : data.m_data)
-			{
-				std::cout << std::hex << (int)b << " ";
-			}
-			std::cout << std::endl;
+			data.printData();
 		}
+	}
+
+	std::vector<MPEGDataField> gop_vec = getVectorByType(MPEGdata, group_of_picture);
+	for (auto g : gop_vec)
+	{
+		g.printData();
 	}
 
 	getchar();
